@@ -17,14 +17,15 @@ def create_db(workdir: str):
         if "spec" in filenames:
             #logging.debug("找到 spec 文件在: %s" % dirpath)
             find_abbs_package_file(dirpath, dirnames)
-            break
+            #break
         #end-if
     #end-for
+    logging.info("分析数据...")
 #end-def
         
 def find_abbs_package_file(dirpath: str, dirnames: list[str]):
-    dirpath = "/home/pngchs/build/base/aosc-TREE/runtime-gis/pdal"
-    dirnames = ["autobuild"]
+    # dirpath = "/home/pngchs/build/amd64/TREE/runtime-gis/pdal"
+    # dirnames = ["autobuild"]
     # 进入spec 的下层目录，查找 define 文件
     for thisDir in dirnames:
         defile = os.path.join(dirpath, thisDir)
@@ -34,11 +35,15 @@ def find_abbs_package_file(dirpath: str, dirnames: list[str]):
             if "PKGNAME" in package.keys():
                 abbsDB[ package["PKGNAME"] ] = package
             else:
-                logging.error("解析错误: %s" % defile)
+                logging.error("没有包名: %s" % defile)
             #end-if
         #end-if
     #end-for
 #end-if
+
+def analyze_package(pkg: str):
+    pass
+#end-def
                 
 
 ## ================ 解析文件 ==================
@@ -52,11 +57,17 @@ def parser_file(fn: str):
     # 提取的关键字附加到 defines 输出
     newcontext = attach_to_defines(context, outKey)
     # 执行
-    result = subprocess.run(newcontext, shell=True, timeout=10)
-    #print(result)
+    result = subprocess.run(newcontext, shell=True, timeout=10, capture_output=True, text=True)
+    # print(result.stdout)
     # 把 ++++ 中的内容解析出来
-
-    return {}
+    out, err = tranz_result_to_map(result.stdout, outKey)
+    if len(err) > 0:
+        logging.error("解析遇到错误:%s" % fn)
+        for e in err:
+            logging.error(e)
+        #end-for
+    #end-if
+    return out
 #end-def
 
 # 查找所有有效的关键字
@@ -95,42 +106,60 @@ def get_word(context: str, pos: int, max: int):
 
 # 附加到输出
 def attach_to_defines(context: str, outKeys: list[str]):
+    if len(outKeys) == 0:
+        return context
     lst = []
+    lst.append('echo "%s"' % divSym)
     for key in outKeys:
-        lst.append('echo "++++++++"')
         lst.append('echo "%s"' % key)
+        lst.append('echo "%s"' % divSym)
         lst.append('echo "$%s"' % key)
+        lst.append('echo "%s"' % divSym)
     #end-for
-    lst.append('echo "++++++++"')
-    lst.append('echo "__END__"')
     return context + "\n" + str.join("\n", lst)
 #end-def
 
-# 提取其中有效的输出，转化为 map
+# 提取其中有效的输出，转化为字典
 def tranz_result_to_map(result: str, outKey: list[str]):
+    tls = []
     out = {}
+    err = []
     if result is None:
-        return out
+        return out, err
     max = len(result)
+    divlen = len(divSym)
     current = 0
     while current < max:
-        pos = result.find("++++++++", current)
-        if pos < 0:
+        startpos = result.find(divSym, current)
+        # 超出范围的
+        if startpos < 0 or startpos + divlen >= max:
             break
+        # 下一个标记
+        endpos = result.find(divSym, startpos + divlen)
+        if endpos < 0:
+            break
+        word = result[current + divlen:endpos].strip()
+        tls.append(word)
+        #logging.debug("word is:%s" % word)
+        current = endpos
+    #end-while
+    count = len(tls)
+    if count % 2 == 1:
+        err.append("变量与值的数量不匹配！")
+    if count != (len(outKey) * 2):
+        err.append("输入关键字与输出关键字的数量不匹配！")
+    #end-if
+    ii = 0
+    while ii < count:
+        if ii + 1 < count:
+            out[tls[ii]] = tls[ii+1]
+            ii += 2
+        else:
+            out[tls[ii]] = "error"
+            ii += 1
         #end-if
-        current = next_line_position(result, pos, max)
-        if current >= max:
-            raise Exception("结果解析提前终止!")
-        word, current = get_word(result, current, max)
-        # 转到下一行，下一行极为结果
-        current = next_line_position(result, pos, max)
-        if current >= max:
-            raise Exception("结果解析提前终止!")
-        
-
-
-
-    return out
+    #end-while
+    return out, err
 #end-def
 
 # 返回下一行的位置

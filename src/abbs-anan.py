@@ -38,6 +38,6 @@ print("=========使用说明=========")
 print("所有分析的结果都是基于本地 abbs 树，无任何其他分析")
 print("当前的工作目录是: " + workDir)
 print("用法1: find-deps xxxx to csv 表示按层级列出xxxx包的依赖，并导出为csv文件")
-print("用法2: exit 退出程序")
+print("用法2: exit 退出程序\n")
 
 MainRun()
