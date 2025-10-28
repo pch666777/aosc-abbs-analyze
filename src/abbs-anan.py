@@ -26,7 +26,7 @@ def MainRun():
 #end-def
 
 def FindDeps(aclist):
-    workDir = "I:\\repo\\TREE"
+    workDir = "/home/pngchs/build/amd64/TREE"
     findDB.create_db(workDir)
     pass
 #end-def

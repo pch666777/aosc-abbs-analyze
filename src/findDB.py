@@ -1,8 +1,10 @@
 import os
 import logging
-
+import subprocess
 # 扫描得到的结果存储在这，包名应该是唯一的
 abbsDB = {}
+# 用于标识输出的分割符号
+divSym = "+++###+++"
 
 def create_db(workdir: str):
     currentdir = workdir
@@ -20,7 +22,9 @@ def create_db(workdir: str):
     #end-for
 #end-def
         
-def find_abbs_package_file(dirpath: str, dirnames: str):
+def find_abbs_package_file(dirpath: str, dirnames: list[str]):
+    dirpath = "/home/pngchs/build/base/aosc-TREE/runtime-gis/pdal"
+    dirnames = ["autobuild"]
     # 进入spec 的下层目录，查找 define 文件
     for thisDir in dirnames:
         defile = os.path.join(dirpath, thisDir)
@@ -42,42 +46,38 @@ def parser_file(fn: str):
     with open(fn, 'r') as file:
         context = file.read()
     #end-with
-    out = {}
-    wordStark = []
-    symbolStark = []
     max = len(context)
-    current = 0
-    while current <= max:
-        # 注释直接下一行
-        if context[current] == '#':
-            current = next_line_position(context, current + 1, max)
-            continue
-        #end-if
-        # 字母或者 _ 开头则认为是一个单词的开头
-        if context[current].isalpha() or context[current] == '_':
-            word, current = get_word(context, current, max)
-            pass
-        #end-if
+    # 先查找需要的关键字
+    outKey = get_key_words(context, max)
+    # 提取的关键字附加到 defines 输出
+    newcontext = attach_to_defines(context, outKey)
+    # 执行
+    result = subprocess.run(newcontext, shell=True, timeout=10)
+    #print(result)
+    # 把 ++++ 中的内容解析出来
 
-    #end-while
-    return out
+    return {}
 #end-def
 
-# 返回下一行的位置
-def next_line_position(context, pos, max):
-    while pos < max:
-        if context[pos] == '\n':
-            # \r 和 \n 按同样的模式处理，以防出错
-            while (context[pos] == '\n' or context[pos] == '\r') and pos < max:
-                pos += 1
-            #end-while
-            return pos
-        else:
-            pos += 1
-        #end-if
-    #end-while
-    return max
-#end-def
+# 查找所有有效的关键字
+def get_key_words(context: str, max: int):
+    baseKey = ["PKGNAME", "PKGDEP", "BUILDDEP"]
+    outKey = []
+    for key in baseKey:
+        current = 0
+        # 找到所有以关键字开头的单词
+        while current < max and current >= 0:
+            pos = context.find(key, current)
+            if pos < 0:
+                break  # 关键字单词找完了
+            #end-if
+            word, current = get_word(context, pos, max)
+            outKey.append(word)
+            #logging.debug("key is: %s" % word)
+        #end-while
+    #end-for
+    return outKey
+#end
 
 # 返回一个单词，只能是字母、下划线、-、数字的组合
 def get_word(context: str, pos: int, max: int):
@@ -91,4 +91,56 @@ def get_word(context: str, pos: int, max: int):
             return context[start:pos], pos
         #end-if
     return context[start:max], max
+#end-def
+
+# 附加到输出
+def attach_to_defines(context: str, outKeys: list[str]):
+    lst = []
+    for key in outKeys:
+        lst.append('echo "++++++++"')
+        lst.append('echo "%s"' % key)
+        lst.append('echo "$%s"' % key)
+    #end-for
+    lst.append('echo "++++++++"')
+    lst.append('echo "__END__"')
+    return context + "\n" + str.join("\n", lst)
+#end-def
+
+# 提取其中有效的输出，转化为 map
+def tranz_result_to_map(result: str, outKey: list[str]):
+    out = {}
+    if result is None:
+        return out
+    max = len(result)
+    current = 0
+    while current < max:
+        pos = result.find("++++++++", current)
+        if pos < 0:
+            break
+        #end-if
+        current = next_line_position(result, pos, max)
+        if current >= max:
+            raise Exception("结果解析提前终止!")
+        word, current = get_word(result, current, max)
+        # 转到下一行，下一行极为结果
+        current = next_line_position(result, pos, max)
+        if current >= max:
+            raise Exception("结果解析提前终止!")
+        
+
+
+
+    return out
+#end-def
+
+# 返回下一行的位置
+def next_line_position(context, pos, max):
+    while pos < max:
+        if context[pos] == '\n':
+            return pos + 1
+        else:
+            pos += 1
+        #end-if
+    #end-while
+    return max
 #end-def
