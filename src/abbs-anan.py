@@ -1,8 +1,13 @@
 import os
+import logging
 import findDB
 
 
 def MainRun():
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)s %(message)s',
+                        datefmt='%H:%M:%S',
+                        handlers=[logging.StreamHandler()])
     while True:
         action = input("anan: ")
         aclist = [item for item in action.split(" ") if item != ""]
@@ -21,8 +26,8 @@ def MainRun():
 #end-def
 
 def FindDeps(aclist):
-    workDir = "I:\\code\\TREE"
-    findDB.find_db(workDir, "TREE")
+    workDir = "I:\\repo\\TREE"
+    findDB.create_db(workDir)
     pass
 #end-def
 
