@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>可折叠树形控件</title>
+    <style>
+        .tree, .tree ul {
+            list-style-type: none;
+            padding-left: 20px;
+            transition: all 0.3s;
+        }
+
+        .tree li {
+            position: relative;
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 1px dashed #3498db;
+        }
+
+        .tree .node-label {
+            cursor: pointer;
+            padding: 3px 6px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .tree .node-label:hover {
+            background-color: #f0f0f0;
+        }
+
+        .tree .caret {
+            display: inline-block;
+            width: 0;
+            height: 0;
+            margin-right: 8px;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            border-left: 8px solid #3498db;
+            vertical-align: middle;
+            transition: transform 0.3s;
+        }
+
+        .tree .collapsed > ul {
+            display: none;
+        }
+
+        .tree .collapsed > .node-label > .caret {
+            transform: rotate(0deg);
+        }
+
+        .tree .expanded > .node-label > .caret {
+            transform: rotate(90deg);
+        }
+
+        .tree .leaf > .node-label > .caret {
+            visibility: hidden;
+        }
+    </style>
+</head>
+<body>
+    <h2>可折叠树形控件示例</h2>
+    <div class="tree">
+        <ul>
+            <li class="expanded">
+                <span class="node-label" onclick="toggleNode(this)">
+                    <span class="caret"></span>根节点
+                </span>
+                <ul>
+                    <li class="leaf">
+                        <span class="node-label">叶子节点 1</span>
+                    </li>
+                    <li class="expanded">
+                        <span class="node-label" onclick="toggleNode(this)">
+                            <span class="caret"></span>子节点 2
+                        </span>
+                        <ul>
+                            <li class="leaf">
+                                <span class="node-label">叶子节点 2.1</span>
+                            </li>
+                            <li class="leaf">
+                                <span class="node-label">叶子节点 2.2</span>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="leaf">
+                        <span class="node-label">叶子节点 3</span>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <script>
+        function toggleNode(node) {
+            const li = node.closest('li');
+            const isExpanded = li.classList.contains('expanded');
+
+            // 切换展开/折叠状态
+            li.classList.toggle('expanded', !isExpanded);
+            li.classList.toggle('collapsed', isExpanded);
+
+            // 更新所有子节点状态
+            const childItems = li.querySelectorAll('li');
+            childItems.forEach(child => {
+                if (isExpanded) {
+                    child.classList.remove('expanded');
+                    child.classList.add('collapsed');
+                } else {
+                    child.classList.remove('collapsed');
+                    child.classList.add('expanded');
+                }
+            });
+        }
+
+        // 初始化时展开所有节点
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.tree li').forEach(li => {
+                li.classList.add('expanded');
+                li.classList.remove('collapsed');
+            });
+        });
+    </script>
+</body>
+</html>

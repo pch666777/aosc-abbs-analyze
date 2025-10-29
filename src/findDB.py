@@ -17,7 +17,7 @@ def create_db(workdir: str):
         if "spec" in filenames:
             #logging.debug("找到 spec 文件在: %s" % dirpath)
             find_abbs_package_file(dirpath, dirnames)
-            #break
+            # break
         #end-if
     #end-for
     logging.info("分析数据...")
@@ -34,17 +34,13 @@ def find_abbs_package_file(dirpath: str, dirnames: list[str]):
             package = parser_file(defile)
             if "PKGNAME" in package.keys():
                 abbsDB[ package["PKGNAME"] ] = package
+                # print(f"{package['PKGNAME']}")
             else:
                 logging.error("没有包名: %s" % defile)
             #end-if
         #end-if
     #end-for
-#end-if
-
-def analyze_package(pkg: str):
-    pass
-#end-def
-                
+#end-if    
 
 ## ================ 解析文件 ==================
 def parser_file(fn: str):
@@ -67,6 +63,7 @@ def parser_file(fn: str):
             logging.error(e)
         #end-for
     #end-if
+    #print(f"{out}")
     return out
 #end-def
 
@@ -125,6 +122,7 @@ def tranz_result_to_map(result: str, outKey: list[str]):
     out = {}
     err = []
     if result is None:
+        err.append("result输出结果为空！")
         return out, err
     max = len(result)
     divlen = len(divSym)
@@ -152,10 +150,11 @@ def tranz_result_to_map(result: str, outKey: list[str]):
     ii = 0
     while ii < count:
         if ii + 1 < count:
-            out[tls[ii]] = tls[ii+1]
+            out[tls[ii]] = conver_str_to_list(tls[ii+1])
+            # logging.info(tls[ii])
             ii += 2
         else:
-            out[tls[ii]] = "error"
+            out[tls[ii]] = ["error"]
             ii += 1
         #end-if
     #end-while
@@ -172,4 +171,20 @@ def next_line_position(context, pos, max):
         #end-if
     #end-while
     return max
+#end-def
+
+#将含有空格的字符串，转化为列表
+def conver_str_to_list(ts: str):
+    outlst = []
+    for item in ts.split(" "):
+        item = item.strip()
+        if len(item) > 0:
+            outlst.append(item)
+        #end-if
+    #end-for
+    # 只有一个元素，返回元素本身
+    if len(outlst) <= 1:
+        return ts
+    else:
+        return outlst
 #end-def
