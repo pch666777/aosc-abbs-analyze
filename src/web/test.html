@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>abbs树分析工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        /* 父容器设置为垂直方向flex布局 */
+        .parent-container {
+            display: flex;
+            flex-direction: row;
+            gap: 15px; /* 控制行间距 */
+        }
+        /* 保持每个.row内部横向排列 */
+        .row {
+            margin-bottom: 15px;
+            min-width: 400px;
+        }
+        .row input{
+            width: 150px;
+        }
+        .tree, .tree ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        .tree li {
+            margin: 5px 0;
+        }
+        .pkgdep{
+            background-color: lightgreen;
+        }
+        .builddep{
+            background-color: lightgray;
+        }
+        .match {
+            background-color: #ffffcc;
+        }
+        .greylight{
+            background-color: #e0e0e0;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .smallfont{
+            margin-top: 8px;
+            margin-bottom: 3px;
+            font-size: 12px;
+            color: #808080;
+        }
+        .normalfont{
+            font-size: 14px;
+            color: #303030;
+        }
+    </style>
+</head>
+<body>
+    <div style="display:inline-block; width: 95%; margin-right: 10px; max-width: 1000px;">
+        <div class="smallfont">
+            1、选择<span class="greylight">abbs-anan</span>生成的<span class="greylight">json</span>文件
+        </div>
+        <span>
+            <input type="text" id="filePath" placeholder="未选择文件" readonly style="width: 75%; margin-right: 10px;">
+            <input type="file" id="fileLoader" accept=".json" style="display: none;">
+            <button onclick="document.getElementById('fileLoader').click()">加载</button>
+        </span>
+        <div class="smallfont">
+            2、依赖路径中必须含有的包，空格分组，过滤不关心的依赖，为空时会导致结果很多
+        </div>
+        <span>
+            <textarea id="includeText" style="width: 75%;height: 30px;"></textarea>
+        </span>
+        <div class="smallfont">
+            3、需要高亮的单词，某些时候很有用
+        </div>
+        <div>
+            <textarea id="lightText" style="width: 75%;height: 40px;"></textarea>
+        </div>
+        <div>
+            <span class="normalfont">最大分析层级</span>
+            <input type="text" id="maxLevelText" style="width: 30px; margin-right: 10px;" value="30">
+        </div>
+        <div class="smallfont">
+            4、输入需要分析的包名
+        </div>
+        <span>
+            <input type="text" id="searchText" placeholder="输入搜索关键词" style="width: 75%; margin-right: 10px;">
+            <button onclick="analyzeJson()" style="margin-right: auto;">分析</button>
+        </span>
+    </div>
+    <div class="row">
+        <div id="treeContainer" class="tree"></div>
+    </div>
+
+    <script>
+        let jsonData = null;
+        
+        document.getElementById('fileLoader').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('filePath').value = file.name;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        jsonData = JSON.parse(e.target.result);
+                    } catch (error) {
+                        alert('JSON格式错误: ' + error.message);
+                        jsonData = null;
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function analyzeJson() {
+            if (!jsonData) {
+                alert('请先加载JSON文件');
+                return;
+            }
+            
+            const searchTerm = document.getElementById('searchText').value.trim();
+            if (!searchTerm) {
+                alert('请输入搜索关键词');
+                return;
+            }
+
+            const maxLevel = parseInt(document.getElementById('maxLevelText').value.trim());
+
+            //生成指定层级的json树
+
+            //生成keyPackages列表
+
+            //根据KeyPackages过滤json树
+            
+            const container = document.getElementById('treeContainer');
+            container.innerHTML = '';
+            
+            const rootUl = document.createElement('ul');
+            rootUl.className = 'tree';
+            container.appendChild(rootUl);
+            
+            //重建为树形结构，同时匹配高亮、自引用、已在前面出现过的包
+            buildTree(rootUl, jsonData, searchTerm);
+        }
+
+        //原始json，需要查找的包名，当前层级，最大层级
+        function filterJson(thisJson, pkgName, current, max){
+            let outjson = {}
+            if(pkgName in thisJson){
+                vals = thisJson[pkgName]
+                outjson[pkgName] = vals
+                // 检查DEP BUILDDEP，顺着往下找
+                for (const key of ["PKGDEP", "BUILDDEP"]){
+                    if(!(key in vals)) continue;
+                    childs = vals[key]
+                    //console.log(childs)
+                    for(const cc of childs){
+                        childul = create_ul_from_json(thisJson, cc, level + 1)
+                        ul.appendChild(childul)
+                    }
+                }
+            }
+            return outjson
+        }
+
+        function buildTree(parent, thisJson, searchTerm, path = []) {
+            if (thisJson === null || typeof thisJson === 'undefined'){
+                console.log("提供了非json数据")
+                return;
+            }
+            const ul = create_ul_from_json(thisJson, searchTerm, 0)
+            parent.appendChild(ul);
+        }
+
+        function create_ul_from_json(thisJson, pkgName, level){
+            const ul = document.createElement('ul');
+            let vals;
+            if(pkgName in thisJson){
+                vals = thisJson[pkgName]
+            }else{
+                ul.textContent = pkgName + " 没有找到"
+                return ul
+            }
+            ul.textContent = pkgName
+            //是否到达允许的最大层级
+            if(level > 1){
+                return ul
+            }
+            // 检查DEP BUILDDEP，加入子节点
+            for (const key of ["PKGDEP", "BUILDDEP"]){
+                if(!(key in vals)) continue;
+                childs = vals[key]
+                //console.log(childs)
+                for(const cc of childs){
+                    childul = create_ul_from_json(thisJson, cc, level + 1)
+                    ul.appendChild(childul)
+                }
+            }
+            return ul
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+    </script>
+</body>
+</html>
