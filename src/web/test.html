@@ -53,6 +53,9 @@
             font-size: 14px;
             color: #303030;
         }
+        .tree ul {
+            border-left: 1px dashed #3498db; /* 关键规则 */
+        }
     </style>
 </head>
 <body>
@@ -79,7 +82,11 @@
         </div>
         <div>
             <span class="normalfont">最大分析层级</span>
-            <input type="text" id="maxLevelText" style="width: 30px; margin-right: 10px;" value="30">
+            <input type="text" id="maxLevelText" style="width: 30px; margin-right: 10px;" value="8">
+            <span>
+                <input type="checkbox" id="useSelfCheck" checked>
+                <span class="normalfont">显示自引用</span>
+            </span>
         </div>
         <div class="smallfont">
             4、输入需要分析的包名
@@ -90,7 +97,7 @@
         </span>
     </div>
     <div class="row">
-        <div id="treeContainer" class="tree"></div>
+        <div id="treeContainer"></div>
     </div>
 
     <script>
@@ -126,105 +133,113 @@
                 return;
             }
 
-            const maxLevel = parseInt(document.getElementById('maxLevelText').value.trim());
-
-            //生成keyPackages列表
-            const keyPackages = create_text_area_list("includeText")
-
-            //已经出现过的包，防止反复出现
-            let hasUsed = []
             //生成指定层级的json树  
-            let newJson = filterJson(jsonData, searchTerm, 0, 2, hasUsed)
-            if(!newJson){
-                tstr = searchTerm + " 没有找到包"
-                newJson = {"PKGNAME": tstr}
-            }
-            console.log(newJson)
+            let newJson = filterJson(jsonData, searchTerm);
+            console.log(newJson);
+            //return;
 
-            //根据KeyPackages过滤json树
-            if(Object.keys(keyPackages).length > 0){
-                //自包含也很重要，分支要保留
-                keyPackages.push(searchTerm)
-                newJson = filter_json_by_key(newJson, keyPackages);
-            }
-            
             const container = document.getElementById('treeContainer');
             container.innerHTML = '';
             
-            const rootUl = document.createElement('ul');
-            rootUl.className = 'tree';
-            container.appendChild(rootUl);
+            //const rootUl = document.createElement('ul');
+            //rootUl.className = 'tree';
+            //container.appendChild(rootUl);
             
             //重建为树形结构，同时匹配高亮、自引用、已在前面出现过的包
-            buildTree(rootUl, jsonData, searchTerm);
+            buildTree(container, newJson, searchTerm);
         }
 
         //原始json，需要查找的包名，当前层级，最大层级
         //返回的是字典，为空时返回null
-        function filterJson(thisJson, pkgName, current, max, hasUsed){
-            let outjson = {}
-            if(current <= max && (pkgName in thisJson)){
-                outjson["PKGNAME"] = pkgName
-                let vals = thisJson[pkgName]
-                let nextlst = {"PKGDEP":[], "BUILDDEP":[]}
-                // 检查PKGDEP BUILDDEP，顺着往下找
+        function filterJson(jsonData, pkgName){
+            //最大允许的层级
+            const maxLevel = parseInt(document.getElementById('maxLevelText').value.trim());
+            //生成keyPackages列表
+            let keyPackages = create_text_area_list("includeText")
+            //检查是否需要自包含
+            const isShowSelf = document.getElementById('useSelfCheck').checked
+            if(Object.keys(keyPackages).length > 0){
+                //自包含是否被选中
+                if(isShowSelf) keyPackages.push(pkgName);
+            }else{
+                keyPackages = null;
+            }
+            //=============== 用于递归的函数 ==================
+            function filterJson_t(thisName, level){
+                //后一个参数是本条分支是否应该保留，如果用于过滤的包为空，那么所有的分支都应该保留
+                let result = [{"PKGNAME": thisName}, keyPackages === null]
+                //先确定本分支是否应该保留
+                //if(thisName === "libtiff"){
+                //    let uuuu = 0;
+                //}
+                if(keyPackages && keyPackages.includes(thisName)){
+                    result[1] = true ;
+                } 
+                if(!(thisName in jsonData)){
+                    (result[0])["PKGNAME"] = thisName + " 没有找到";
+                    return result;
+                }
+                if(level > maxLevel){
+                    return result;
+                }
+                //进入正常判断流程
+                let vals = jsonData[thisName]
                 for (const key of ["PKGDEP", "BUILDDEP"]){
                     if(!(key in vals)) continue;
-                    nlst = nextlst[key]
-                    //第一遍将出现过的包添加到 used
+                    let outlst = []
                     for(const cc of vals[key]){
-                        if(cc in hasUsed) {
-                            outlst.push({"PKGNAME":cc, "//flags":"used"});
-                            continue;
+                        console.log(cc)
+                        //自包含就没有必要进入下一层了
+                        if(cc === pkgName) {
+                            let subret = filterJson_t(cc, maxLevel + 1);
+                            outlst.push(subret[0]);
+                            //勾选了必须自包含时
+                            if(isShowSelf) result[1] = true;
                         }
                         else{
-                            nlst.push(cc);
-                            hasUsed.push(cc);
+                            //总是立即进入下一层，这样我们才能知道本条分支是否应该保留
+                            //关键依赖包判断意见在函数的开头做了
+                            let subret = filterJson_t(cc, level + 1);
+                            if(subret[1] === true){
+                                outlst.push(subret[0]);
+                                result[1] = true;
+                            }
                         }
                     }
-                    //第二遍往下一层 
-                    outlst.push(filterJson(thisJson, cc, current + 1, max))
-                    outjson[key] = outlst
+                    (result[0])[key] = outlst;
                 }
+                //console.log([thisName, level])
+                return result;
             }
-            if(Object.keys(outjson).length === 0) return null;
-            return outjson
+            //=====================================
+            let baseRet = filterJson_t(pkgName, 0);
+            return baseRet[0];
         }
 
-        function buildTree(parent, thisJson, searchTerm, path = []) {
-            if (thisJson === null || typeof thisJson === 'undefined'){
+        function buildTree(parent, jsonData, searchTerm, path = []) {
+            if (jsonData === null || typeof jsonData === 'undefined'){
                 console.log("提供了非json数据")
                 return;
             }
-            const ul = create_ul_from_json(thisJson, searchTerm, 0)
-            parent.appendChild(ul);
-        }
-
-        function create_ul_from_json(thisJson, pkgName, level){
-            const ul = document.createElement('ul');
-            let vals;
-            if(pkgName in thisJson){
-                vals = thisJson[pkgName]
-            }else{
-                ul.textContent = pkgName + " 没有找到"
-                return ul
-            }
-            ul.textContent = pkgName
-            //是否到达允许的最大层级
-            if(level > 1){
-                return ul
-            }
-            // 检查DEP BUILDDEP，加入子节点
-            for (const key of ["PKGDEP", "BUILDDEP"]){
-                if(!(key in vals)) continue;
-                childs = vals[key]
-                //console.log(childs)
-                for(const cc of childs){
-                    childul = create_ul_from_json(thisJson, cc, level + 1)
-                    ul.appendChild(childul)
+            ///
+            function create_ul_from_json(thisJson, level){
+                const ul = document.createElement('ul');
+                ul.textContent = thisJson["PKGNAME"]
+                if(level === 1 ) ul.className = "tree";
+                for (const key of ["PKGDEP", "BUILDDEP"]){
+                    if(!(key in thisJson)) continue;
+                    let isbuild = (key === "BUILDDEP")
+                    for(const child of thisJson[key]){
+                        childul = create_ul_from_json(child, level + 1)
+                        if(isbuild) childul.className = "builddep"
+                        ul.appendChild(childul)
+                    }
                 }
+                return ul
             }
-            return ul
+
+            const baseul = create_ul_from_json(jsonData, 0)
+            parent.appendChild(baseul);
         }
 
         //获取keypackages
@@ -235,11 +250,6 @@
             const result = tstr.split(' ').filter(item => item !== '');
             //console.log(result)
             return result
-        }
-
-        //根据keypackages过滤包
-        function filter_json_by_key(thisJson, keyPackages){
-
         }
 
         function escapeRegExp(string) {

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>abbs树分析工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .tree, .tree ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        .tree li {
+            margin: 5px 0;
+        }
+        .pkgdep{
+            background-color: lightgreen;
+        }
+        .builddep{
+            background-color: lightgray;
+        }
+        .match {
+            background-color: #ffffcc;
+        }
+        .greylight{
+            background-color: #e0e0e0;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .smallfont{
+            margin-top: 8px;
+            margin-bottom: 3px;
+            font-size: 12px;
+            color: #808080;
+        }
+        .normalfont{
+            font-size: 14px;
+            color: #303030;
+        }
+        .tree ul {
+            border-left: 1px dashed #3498db; /* 关键规则 */
+        }
+    </style>
+</head>
+<body>
+    <div style="display:inline-block; width: 95%; margin-right: 10px; max-width: 1000px;">
+        <div class="smallfont">
+            1、选择<span class="greylight">abbs-anan</span>生成的<span class="greylight">json</span>文件
+        </div>
+        <span>
+            <input type="text" id="filePath" placeholder="未选择文件" readonly style="width: 75%; margin-right: 10px;">
+            <input type="file" id="fileLoader" accept=".json" style="display: none;">
+            <button onclick="document.getElementById('fileLoader').click()">加载</button>
+        </span>
+        <div class="smallfont">
+            2、输入需要分析的包名
+        </div>
+        <span>
+            <input type="text" id="searchText" placeholder="输入搜索关键词" style="width: 75%; margin-right: 10px;">
+            <button onclick="analyzeJson()" style="margin-right: auto;">分析</button>
+        </span>
+        <div style="margin-top: 10px;">
+            <span class="normalfont">最大分析层级</span>
+            <input type="text" id="maxLevelText" style="width: 30px; margin-right: 10px;" value="8">
+            <span>
+                <input type="checkbox" id="useSelfCheck" checked>
+                <span class="normalfont">显示自引用</span>
+            </span>
+        </div>
+    </div>
+    <div class="row">
+        <div class="smallfont">
+            依赖分析的包，其依赖由少到多排列
+            <span class="smallfont"></span>
+        </div>
+        <br>
+        <div class="smallfont">
+            等待分析结果...
+        </div>
+    </div>
+
+    <script>
+        let jsonData = null;
+        
+        document.getElementById('fileLoader').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('filePath').value = file.name;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        jsonData = JSON.parse(e.target.result);
+                    } catch (error) {
+                        alert('JSON格式错误: ' + error.message);
+                        jsonData = null;
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function analyzeJson() {
+            if (!jsonData) {
+                alert('请先加载JSON文件');
+                return;
+            }
+            
+            const searchTerm = document.getElementById('searchText').value.trim();
+            if (!searchTerm) {
+                alert('请输入搜索关键词');
+                return;
+            }
+
+            //搜索所有依赖指定包的包
+
+        }
+
+        //搜索指定依赖的包
+        function find_depend_on(){
+            
+        }
+
+        //获取keypackages
+        function create_text_area_list(textIdName){
+            tstr = document.getElementById(textIdName).value.trim();
+            tstr = tstr.replace(/\r|\n|\\/g, ' ');
+            //console.log(tstr)
+            const result = tstr.split(' ').filter(item => item !== '');
+            //console.log(result)
+            return result
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+    </script>
+</body>
+</html>
