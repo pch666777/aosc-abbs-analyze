@@ -128,11 +128,25 @@
 
             const maxLevel = parseInt(document.getElementById('maxLevelText').value.trim());
 
-            //生成指定层级的json树
-
             //生成keyPackages列表
+            const keyPackages = create_text_area_list("includeText")
+
+            //已经出现过的包，防止反复出现
+            let hasUsed = []
+            //生成指定层级的json树  
+            let newJson = filterJson(jsonData, searchTerm, 0, 2, hasUsed)
+            if(!newJson){
+                tstr = searchTerm + " 没有找到包"
+                newJson = {"PKGNAME": tstr}
+            }
+            console.log(newJson)
 
             //根据KeyPackages过滤json树
+            if(Object.keys(keyPackages).length > 0){
+                //自包含也很重要，分支要保留
+                keyPackages.push(searchTerm)
+                newJson = filter_json_by_key(newJson, keyPackages);
+            }
             
             const container = document.getElementById('treeContainer');
             container.innerHTML = '';
@@ -146,22 +160,34 @@
         }
 
         //原始json，需要查找的包名，当前层级，最大层级
-        function filterJson(thisJson, pkgName, current, max){
+        //返回的是字典，为空时返回null
+        function filterJson(thisJson, pkgName, current, max, hasUsed){
             let outjson = {}
-            if(pkgName in thisJson){
-                vals = thisJson[pkgName]
-                outjson[pkgName] = vals
-                // 检查DEP BUILDDEP，顺着往下找
+            if(current <= max && (pkgName in thisJson)){
+                outjson["PKGNAME"] = pkgName
+                let vals = thisJson[pkgName]
+                let nextlst = {"PKGDEP":[], "BUILDDEP":[]}
+                // 检查PKGDEP BUILDDEP，顺着往下找
                 for (const key of ["PKGDEP", "BUILDDEP"]){
                     if(!(key in vals)) continue;
-                    childs = vals[key]
-                    //console.log(childs)
-                    for(const cc of childs){
-                        childul = create_ul_from_json(thisJson, cc, level + 1)
-                        ul.appendChild(childul)
+                    nlst = nextlst[key]
+                    //第一遍将出现过的包添加到 used
+                    for(const cc of vals[key]){
+                        if(cc in hasUsed) {
+                            outlst.push({"PKGNAME":cc, "//flags":"used"});
+                            continue;
+                        }
+                        else{
+                            nlst.push(cc);
+                            hasUsed.push(cc);
+                        }
                     }
+                    //第二遍往下一层 
+                    outlst.push(filterJson(thisJson, cc, current + 1, max))
+                    outjson[key] = outlst
                 }
             }
+            if(Object.keys(outjson).length === 0) return null;
             return outjson
         }
 
@@ -199,6 +225,21 @@
                 }
             }
             return ul
+        }
+
+        //获取keypackages
+        function create_text_area_list(textIdName){
+            tstr = document.getElementById(textIdName).value.trim();
+            tstr = tstr.replace(/\r|\n|\\/g, ' ');
+            //console.log(tstr)
+            const result = tstr.split(' ').filter(item => item !== '');
+            //console.log(result)
+            return result
+        }
+
+        //根据keypackages过滤包
+        function filter_json_by_key(thisJson, keyPackages){
+
         }
 
         function escapeRegExp(string) {
